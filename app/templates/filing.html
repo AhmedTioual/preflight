@@ -1,0 +1,431 @@
+{% extends "base.html" %}
+{% block title %}{{ filing.client.name }}, {{ filing.period_end.strftime('%b %Y') }}{% endblock %}
+{% block content %}
+{% set errors = version.findings|selectattr('severity', 'equalto', 'error')|list %}
+{% set warnings = version.findings|selectattr('severity', 'equalto', 'warning')|list %}
+{% set queried = version.findings|selectattr('state', 'equalto', 'queried')|list %}
+{% set last_query = filing.queries[-1] if filing.queries else None %}
+{% set open_points = query.finding_ids|length if query else 0 %}
+{% macro tag(state) -%}
+  {%- if state in ('error', 'warning') %}<span class="tag" aria-hidden="true">!</span>
+  {%- elif state == 'queried' %}<span class="tag" aria-hidden="true">?</span>
+  {%- elif state == 'justified' %}<span class="tag" aria-hidden="true">&#10003;</span>
+  {%- elif state == 'corrected' %}<span class="tag" aria-hidden="true"><svg class="icon" style="width:11px;height:11px;stroke-width:2.4"><use href="#i-edit"/></svg></span>
+  {%- elif state == 'changed' %}<span class="tag" aria-hidden="true">&#8226;</span>{% endif %}
+{%- endmacro %}
+{% set state_text = {'error': 'error', 'warning': 'warning to justify', 'queried': 'asked to the client', 'justified': 'warning justified', 'corrected': 'corrected by the analyst', 'changed': 'changed since the previous version', 'ok': 'no findings'} %}
+
+<div class="page page-wide">
+  {% include "_filing_head.html" %}
+
+  {% if not is_current %}
+  <div class="outcome outcome-old"><svg class="icon"><use href="#i-history"/></svg><div class="grow"><strong>You are looking at version {{ version.number }}, which has been replaced.</strong><p>Findings are shown as they were. Changes are only possible on the current version.</p></div><a class="btn btn-sm" href="/filings/{{ filing.id }}">Open version {{ filing.current.number }}</a></div>
+  {% elif filing.status == 'filed' %}
+  <div class="outcome outcome-approved"><svg class="icon"><use href="#i-shield"/></svg><div class="grow"><strong>Filed with the {{ template.regulator }} on {{ filing.filed_at.strftime('%d %B %Y') }}, reference {{ filing.filing_reference }}</strong><p>Approved internally by {{ filing.reviewed_by.full_name if filing.reviewed_by else 'a reviewer' }}, signed off by {{ filing.client_decision_by }} ({{ filing.client.name }}) on {{ filing.client_decision_at.strftime('%d %B %Y') }}. Recorded by {{ filing.filed_by.full_name }}.</p></div></div>
+  {% elif filing.status == 'client_approved' %}
+  <div class="outcome outcome-approved"><svg class="icon"><use href="#i-check-circle"/></svg><div class="grow"><strong>Signed off by {{ filing.client_decision_by }} ({{ filing.client.name }}) on {{ filing.client_decision_at.strftime('%d %B %Y at %H:%M') }} UTC</strong><p>{% if filing.client_comment %}"{{ filing.client_comment }}" {% endif %}Ready to be filed with the {{ template.regulator }}.</p></div></div>
+  {% elif filing.status == 'sent_to_client' %}
+  <div class="outcome outcome-client"><svg class="icon"><use href="#i-mail"/></svg><div class="grow"><strong>Sent to {{ filing.client.contact_name or filing.client.name }} for sign-off on {{ filing.sent_to_client_at.strftime('%d %B %Y at %H:%M') }} UTC</strong><p>{{ filing.client.name }} remains responsible for the return. Record their answer when it arrives: approval, or the changes they ask for.</p></div></div>
+  {% elif filing.status == 'approved' %}
+  <div class="outcome outcome-approved"><svg class="icon"><use href="#i-shield"/></svg><div class="grow"><strong>Approved by {{ filing.reviewed_by.full_name }} on {{ filing.reviewed_at.strftime('%d %B %Y at %H:%M') }} UTC</strong>{% if filing.review_comment %}<p class="quote">"{{ filing.review_comment }}"</p>{% endif %}</div></div>
+  {% elif filing.status == 'returned' and filing.reviewed_by %}
+  <div class="outcome outcome-returned"><svg class="icon"><use href="#i-alert"/></svg><div class="grow"><strong>Returned by {{ filing.reviewed_by.full_name }} on {{ filing.reviewed_at.strftime('%d %B %Y at %H:%M') }} UTC</strong><p class="quote">"{{ filing.review_comment }}"</p></div></div>
+  {% elif filing.status == 'returned' %}
+  <div class="outcome outcome-returned"><svg class="icon"><use href="#i-alert"/></svg><div class="grow"><strong>{{ filing.client_decision_by }} ({{ filing.client.name }}) asked for changes on {{ filing.client_decision_at.strftime('%d %B %Y') }}</strong><p class="quote">"{{ filing.client_comment }}"</p><p>Make the changes, then submit again: the filing needs a new four-eyes review before it goes back to the client.</p></div></div>
+  {% elif filing.status == 'in_review' and not can_review %}
+  <div class="outcome outcome-review"><svg class="icon"><use href="#i-send"/></svg><div class="grow"><strong>Waiting for a second reviewer</strong><p>{{ review_blocker if review_blocker and 'Four-eyes' in review_blocker else 'Submitted on ' ~ filing.submitted_at.strftime('%d %B %Y at %H:%M') ~ ' UTC. Changes are locked during review.' }}</p></div></div>
+  {% elif queried and last_query %}
+  <div class="outcome outcome-queried"><svg class="icon"><use href="#i-mail"/></svg><div class="grow"><strong>{{ queried|length }} point{{ 's' if queried|length != 1 }} asked to {{ filing.client.contact_name or filing.client.name }} on {{ last_query.sent_at.strftime('%d %B at %H:%M') }}</strong><p>When the client replies, upload the corrected file: every check runs again and the changes are highlighted.</p></div>{% if can_edit %}<button class="btn btn-sm" type="button" data-open="dlg-version">Upload corrected file</button>{% endif %}</div>
+  {% endif %}
+
+  <div class="version-bar">
+    <div class="version-file">
+      {% if filing.versions|length > 1 %}
+      <nav class="segmented" aria-label="Versions">
+        {% for v in filing.versions if v.mapping_confirmed %}<a href="/filings/{{ filing.id }}{{ '?v=' ~ v.number if v.number != filing.current.number else '' }}" {% if v.number == version.number %}aria-current="page"{% endif %}>Version {{ v.number }}</a>{% endfor %}
+      </nav>
+      {% endif %}
+      <svg class="icon icon-sm muted"><use href="#i-file"/></svg>
+      <span class="mono">{{ version.filename }}</span>
+      <span>uploaded by {{ version.uploaded_by.full_name }} on {{ version.uploaded_at.strftime('%d %b %Y, %H:%M') }}</span>
+    </div>
+    <a class="small" href="/filings/{{ filing.id }}/mapping"><svg class="icon icon-sm" style="vertical-align:-3px"><use href="#i-columns"/></svg> Column mapping</a>
+  </div>
+
+  {% if diff %}
+  <details class="panel changes" open>
+    <summary><span><strong>{{ diff|length }} value{{ 's' if diff|length != 1 }} changed since version {{ version.number - 1 }}</strong> <span class="muted">from the client's corrected file</span></span><svg class="icon icon-sm chev"><use href="#i-chevron"/></svg></summary>
+    {% for c in diff %}
+    <div class="change-row"><span><strong>{{ c.fund }}</strong><span class="cell-sub" style="display:block">{{ c.label }}</span></span><span><span class="was">{{ c.old }}</span> <svg class="icon icon-sm muted" style="vertical-align:-3px"><use href="#i-arrow"/></svg> <strong>{{ c.new }}</strong></span><button class="btn btn-sm" type="button" data-select="{{ c.fund_key }}:{{ c.field }}">Show</button></div>
+    {% endfor %}
+  </details>
+  {% endif %}
+
+  <div class="workspace">
+    <section class="panel" aria-label="Fund return data">
+      <div class="grid-wrap">
+        <table class="rgrid">
+          <thead>
+            <tr>
+              <th scope="col">Template field</th>
+              {% for fund in grid.funds %}<th scope="col">{{ fund.label }}<div class="cell-sub">Row {{ fund.index + 2 }} of the file</div></th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+          {% for row in grid.rows %}
+            {% if row.field.key in FIELD_GROUPS %}
+            <tr class="{{ '' if loop.first else 'group-start' }}"><th colspan="{{ grid.funds|length + 1 }}" style="background:#f8fafc;color:var(--ink-3);font-size:.78rem;font-weight:600;padding:.45rem .9rem">{{ FIELD_GROUPS[row.field.key] }}</th></tr>
+            {% endif %}
+            <tr>
+              <th scope="row">{{ row.field.label }}</th>
+              {% for cell in row.cells %}
+              <td class="rcell t-{{ row.field.type }} s-{{ cell.state }}" data-cell="{{ cell.fund_key }}:{{ cell.field }}" data-related="{% for rf in cell.related_fields %}{{ cell.fund_key }}:{{ rf }} {% endfor %}">
+                <button type="button" aria-label="{{ row.field.label }}, {{ grid.funds[loop.index0].label }}: {{ cell.value or 'missing' }}, {{ state_text[cell.state] }}">
+                  {% if cell.state not in ('ok',) %}{{ tag(cell.state) }}{% endif %}
+                  <span class="val">{% if cell.missing %}<span class="muted" style="font-style:italic">Missing</span>{% else %}{{ cell.value }}{% endif %}</span>
+                </button>
+              </td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="grid-legend" aria-label="Legend">
+        <span><i class="sw sw-error"></i>Error</span><span><i class="sw sw-warning"></i>Warning to justify</span><span><i class="sw sw-queried"></i>Asked to the client</span>
+        <span><i class="sw sw-justified"></i>Justified</span><span><i class="sw sw-corrected"></i>Corrected by analyst</span>{% if diff %}<span><i class="sw sw-changed"></i>Changed in this version</span>{% endif %}
+      </div>
+    </section>
+
+    <aside class="panel inspector" aria-label="Details" aria-live="polite">
+      {# ---- default view: all findings ---- #}
+      <div class="inspector-empty" id="inspector-list">
+        <div class="panel-head"><h2>Findings</h2><p>{{ version.findings|length }} on version {{ version.number }}</p></div>
+        {% if not version.findings %}
+        <div class="empty"><svg class="icon" style="color:var(--ok)"><use href="#i-check-circle"/></svg><strong>Every rule passes</strong><p class="small">{{ template.rules|length }} rules checked on {{ grid.funds|length }} funds.</p></div>
+        {% endif %}
+        {% for label, items in [('Errors', errors), ('Warnings', warnings)] if items %}
+        <div class="group-label">{{ label }} ({{ items|length }})</div>
+        {% for f in items %}
+        {% set st = 'queried' if f.state == 'queried' else ('justified' if f.state == 'justified' else f.severity) %}
+        <button class="finding-link" type="button" data-select="{{ f.fund_key }}:{{ f.field }}">
+          <span class="dot dot-{{ st }}"></span>
+          <span><strong class="small">{{ template.rule(f.rule_id).name }}</strong><span class="cell-sub" style="display:block">{{ f.fund_label }}{% if f.state != 'open' %}, {{ STATE_LABELS[f.state]|lower }}{% endif %}</span></span>
+        </button>
+        {% endfor %}
+        {% endfor %}
+        {% if filing.overrides %}
+        <div class="group-label">Corrections by the analyst ({{ filing.overrides|length }})</div>
+        {% for o in filing.overrides %}
+        <button class="finding-link" type="button" data-select="{{ o.fund_key }}:{{ o.field }}">
+          <span class="dot" style="background:var(--brand-600)"></span>
+          <span><strong class="small">{{ template.field(o.field).label }}</strong><span class="cell-sub" style="display:block">{{ o.note }}</span></span>
+        </button>
+        {% endfor %}
+        {% endif %}
+      </div>
+
+      {# ---- one detail block per cell ---- #}
+      {% for row in grid.rows %}{% set fd = row.field %}
+      {% for cell in row.cells %}{% set fund = grid.funds[loop.index0] %}
+      <div class="cell-detail" data-detail="{{ cell.fund_key }}:{{ cell.field }}" hidden>
+        <div class="panel-head">
+          <div><h2>{{ fd.label }}</h2><p>{{ fund.label }}</p></div>
+          <button class="icon-btn" type="button" data-back aria-label="Back to all findings" title="Back to all findings"><svg class="icon"><use href="#i-x"/></svg></button>
+        </div>
+        <div class="panel-body stack">
+          <dl class="kv">
+            <dt>Value</dt><dd><strong>{% if cell.missing %}Missing{% else %}{{ cell.value }}{% endif %}</strong></dd>
+            <dt>In the file</dt><dd class="mono">{{ cell.raw or 'empty' }}</dd>
+            {% if cell.changed_from is not none %}<dt>Version {{ version.number - 1 }}</dt><dd><span class="was">{{ cell.changed_from }}</span></dd>{% endif %}
+            <dt>Template</dt><dd class="muted small">{{ fd.description }}</dd>
+          </dl>
+
+          {% if cell.corrected %}
+          <div class="callout callout-info"><svg class="icon icon-sm"><use href="#i-edit"/></svg><span>Corrected by {{ cell.corrected.by }} from <code>{{ cell.corrected.from }}</code>. Reason: {{ cell.corrected.note }}</span></div>
+          {% endif %}
+
+          {% for f in cell.findings + cell.related %}
+          <div class="finding f-{{ f.severity }}">
+            <div class="finding-top">
+              <span class="finding-rule">{{ template.rule(f.rule_id).name }}</span>
+              {% if f.state == 'open' %}<span class="badge b-{{ f.severity }}">{{ 'Error' if f.severity == 'error' else 'Warning' }}</span>
+              {% else %}<span class="badge b-{{ f.state }}">{{ STATE_LABELS[f.state] }}</span>{% endif %}
+            </div>
+            <p>{{ f.message }}</p>
+            <p class="cell-sub" style="margin-top:.35rem"><span class="mono">{{ f.rule_id }}</span>{% if f.field != cell.field %}, reported on {{ template.field(f.field).label }}{% endif %}</p>
+            {% if f.note %}<div class="note"><strong>{{ 'Justification' if f.state == 'justified' else 'Note' }}{% if f.actor %} by {{ f.actor.full_name }}{% endif %}:</strong> {{ f.note }}{% if f.carried_over %} <span class="muted">(kept from the previous version, same value)</span>{% endif %}</div>{% endif %}
+            {% if f.suggestion and can_edit %}
+            <div class="suggest"><span>Fund register: <code>{{ f.suggestion }}</code></span><button class="btn btn-sm" type="button" data-suggest="{{ f.suggestion }}" data-note="Replaced with the LEI recorded in {{ filing.client.name }}'s fund register.">Use it</button></div>
+            {% endif %}
+            {% if can_edit and f.severity == 'warning' and f.state != 'justified' %}
+            <form method="post" action="/findings/{{ f.id }}/justify">
+              <label for="just-{{ f.id }}">Justification for the reviewer</label>
+              <textarea id="just-{{ f.id }}" name="note" required style="min-height:70px;margin-top:.3rem" placeholder="For example: confirmed by the client, large subscription on 15 June"></textarea>
+              <button class="btn btn-sm" type="submit" style="margin-top:.45rem">Justify warning</button>
+            </form>
+            {% endif %}
+          </div>
+          {% endfor %}
+
+          {% if can_edit %}
+          <form method="post" action="/filings/{{ filing.id }}/corrections" class="correct-form">
+            <input type="hidden" name="fund_key" value="{{ cell.fund_key }}">
+            <input type="hidden" name="field" value="{{ cell.field }}">
+            <h3 style="margin-bottom:.55rem">Correct this value</h3>
+            <div class="field">
+              <label for="val-{{ cell.fund_key|replace(' ', '-') }}-{{ cell.field }}">New value <span class="hint">({{ fd.type_label }}{% if fd.type == 'percent' %}, e.g. 12.5{% elif fd.type == 'amount' %}, full units{% endif %})</span></label>
+              <input id="val-{{ cell.fund_key|replace(' ', '-') }}-{{ cell.field }}" name="value" type="text" class="{{ 'mono' if fd.type == 'lei' }}" value="{{ cell.edit_value }}" required>
+            </div>
+            <div class="field">
+              <label for="note-{{ cell.fund_key|replace(' ', '-') }}-{{ cell.field }}">Reason <span class="req">required</span></label>
+              <textarea id="note-{{ cell.fund_key|replace(' ', '-') }}-{{ cell.field }}" name="note" required style="min-height:70px" placeholder="Why this value is right, and where it comes from"></textarea>
+            </div>
+            <button class="btn btn-primary btn-sm" type="submit" style="margin-top:.7rem">Save correction</button>
+            <p class="cell-sub" style="margin-top:.5rem">Only correct values you can verify. Otherwise ask the client.</p>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}{% endfor %}
+    </aside>
+  </div>
+
+  {% if history %}
+  <details class="panel section">
+    <summary class="panel-head" style="cursor:pointer;list-style:none;border-bottom:0"><h2>Activity on this filing</h2><p>{{ history|length }} events, all in the audit trail</p></summary>
+    <div class="table-wrap">
+      <table>
+        <tbody>
+        {% for e in history|reverse %}
+        <tr><td class="nowrap muted small">{{ e.timestamp.strftime('%d %b, %H:%M:%S') }}</td><td class="nowrap">{{ e.user.full_name if e.user else 'System' }}</td><td><strong style="font-weight:500">{{ e.action.replace('.', ' ').replace('_', ' ')|capitalize }}</strong></td>
+          <td class="details-cell">{% set d = e.details|fromjson %}{% for k, v in d.items() if v not in (None, '', [], {}) and k not in ('sha256',) %}{{ k.replace('_', ' ') }}: <b>{{ v }}</b>{{ '; ' if not loop.last }}{% endfor %}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  {% endif %}
+
+  {# ---- decision bar ---- #}
+  {% if can_edit %}
+  <div class="decision" role="region" aria-label="Next step">
+    <p>{% if blockers %}<strong>Not ready for review yet:</strong> {{ blockers|join(', ') }}.{% else %}<strong>Ready for review.</strong> All errors are resolved and every warning is justified.{% endif %}</p>
+    <div class="decision-actions">
+      {% if open_points %}<button class="btn" type="button" data-open="dlg-query"><svg class="icon icon-sm"><use href="#i-mail"/></svg>Ask the client ({{ open_points }})</button>{% endif %}
+      <button class="btn" type="button" data-open="dlg-version"><svg class="icon icon-sm"><use href="#i-upload"/></svg>Upload corrected file</button>
+      <form method="post" action="/filings/{{ filing.id }}/submit"><button class="btn btn-primary" type="submit" {% if blockers %}disabled title="{{ blockers|join(', ') }}"{% endif %}><svg class="icon icon-sm"><use href="#i-send"/></svg>Submit for review</button></form>
+    </div>
+  </div>
+  {% elif can_review %}
+  <div class="decision" role="region" aria-label="Decision">
+    <p><strong>Your decision.</strong> {{ filing.overrides|length }} correction{{ 's' if filing.overrides|length != 1 }} and {{ version.counts().justified }} justified warning{{ 's' if version.counts().justified != 1 }} to look at. Select a cell to see the evidence.</p>
+    <div class="decision-actions">
+      <button class="btn btn-danger" type="button" data-open="dlg-return">Return to analyst</button>
+      <button class="btn btn-primary" type="button" data-open="dlg-approve">Approve filing</button>
+    </div>
+  </div>
+  {% elif can_release and filing.status == 'approved' %}
+  <div class="decision" role="region" aria-label="Next step">
+    <p><strong>Approved internally.</strong> Send the return and its validation record to {{ filing.client.contact_name or filing.client.name }} for sign-off.</p>
+    <div class="decision-actions"><button class="btn btn-primary" type="button" data-open="dlg-send"><svg class="icon icon-sm"><use href="#i-send"/></svg>Send to client for sign-off</button></div>
+  </div>
+  {% elif can_release and filing.status == 'sent_to_client' %}
+  <div class="decision" role="region" aria-label="Next step">
+    <p><strong>Waiting for the client.</strong> Record the answer from {{ filing.client.name }} when it arrives.</p>
+    <div class="decision-actions"><button class="btn btn-primary" type="button" data-open="dlg-decision">Record client answer</button></div>
+  </div>
+  {% elif can_release and filing.status == 'client_approved' %}
+  <div class="decision" role="region" aria-label="Next step">
+    <p><strong>Signed off by the client.</strong> Submit the filing file through the {{ template.regulator }}'s channel, then record the reference here.</p>
+    <div class="decision-actions">
+      <a class="btn" href="/filings/{{ filing.id }}/export.csv"><svg class="icon icon-sm"><use href="#i-download"/></svg>Filing file (CSV)</a>
+      <button class="btn btn-primary" type="button" data-open="dlg-filed">Record {{ template.regulator }} submission</button>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{# ---- dialogs ---- #}
+{% if can_edit and query and open_points %}
+<dialog id="dlg-query" class="wide" aria-labelledby="query-title">
+  <form method="post" action="/filings/{{ filing.id }}/query">
+    <div class="dialog-head"><div><h2 id="query-title">Ask the client</h2><p>Every open point, grouped by fund. Edit the text, send it from your mailbox, then record it here.</p></div>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <div class="to-line"><span class="muted">To</span><strong>{{ filing.client.contact_name }}</strong><span class="muted">{{ filing.client.contact_email }}</span></div>
+      <div class="field"><label for="q-subject">Subject</label><input id="q-subject" name="subject" type="text" value="{{ query.subject }}"></div>
+      <div class="field"><label for="q-body">Message</label><textarea id="q-body" name="body" class="letter">{{ query.body }}</textarea></div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn" type="button" id="copy-query"><svg class="icon icon-sm"><use href="#i-copy"/></svg><span>Copy text</span></button>
+      <button class="btn btn-primary" type="submit">Record as sent</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+
+{% if can_edit %}
+<dialog id="dlg-version" aria-labelledby="version-title">
+  <form method="post" action="/filings/{{ filing.id }}/versions" enctype="multipart/form-data" data-busy="Checking the new version...">
+    <div class="dialog-head"><div><h2 id="version-title">Upload a corrected file</h2><p>It becomes version {{ filing.versions|length + 1 }}. Saved column mappings, corrections and justifications are reapplied where the values have not changed.</p></div>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <div class="segmented" role="radiogroup" aria-label="Source">
+        <input type="radio" name="source" id="v-file" value="file" checked><label for="v-file">Upload a file</label>
+        {% set period_samples = [] %}{% for k, s in samples.items() if s.period == filing.period_end and s.file != filing.current.filename %}{% set _ = period_samples.append((k, s)) %}{% endfor %}
+        {% if period_samples %}<input type="radio" name="source" id="v-sample" value="sample"><label for="v-sample">Use the demo reply</label>{% endif %}
+      </div>
+      <div style="margin-top:.9rem" data-vpanel="file">
+        <label class="dropzone" for="v-input" style="min-height:130px"><svg class="icon"><use href="#i-upload"/></svg><strong>Choose the corrected file</strong><span class="hint">Excel (.xlsx) or CSV</span><input id="v-input" name="file" type="file" accept=".xlsx,.csv"></label>
+      </div>
+      {% if period_samples %}
+      <div style="margin-top:.9rem" data-vpanel="sample" hidden>
+        <div class="choice-list">
+          {% for k, s in period_samples %}
+          <div class="choice"><input type="radio" name="sample" id="vs-{{ k }}" value="{{ k }}" {% if loop.first %}checked{% endif %}><label for="vs-{{ k }}"><span class="choice-radio" aria-hidden="true"></span><span><strong>{{ s.title }}</strong><span class="hint">{{ s.description }}</span><span class="file-name">{{ s.file }}</span></span></label></div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="dialog-foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">Upload and check</button></div>
+  </form>
+</dialog>
+{% endif %}
+
+{% if can_review %}
+<dialog id="dlg-approve" aria-labelledby="approve-title">
+  <form method="post" action="/filings/{{ filing.id }}/approve">
+    <div class="dialog-head"><div><h2 id="approve-title">Approve this filing</h2><p>Your name and the time are recorded. The filing file becomes available for submission.</p></div>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <div class="callout callout-info" style="margin-bottom:.9rem"><svg class="icon icon-sm"><use href="#i-check-circle"/></svg><span>No errors. {{ version.counts().justified }} warning{{ 's' if version.counts().justified != 1 }} justified, {{ filing.overrides|length }} value{{ 's' if filing.overrides|length != 1 }} corrected by the analyst, {{ filing.versions|length }} file version{{ 's' if filing.versions|length != 1 }}.</span></div>
+      <div class="field"><label for="approve-comment">Comment <span class="hint">optional</span></label><textarea id="approve-comment" name="comment" placeholder="For example: corrections checked against the fund register"></textarea></div>
+    </div>
+    <div class="dialog-foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">Approve filing</button></div>
+  </form>
+</dialog>
+<dialog id="dlg-return" aria-labelledby="return-title">
+  <form method="post" action="/filings/{{ filing.id }}/return">
+    <div class="dialog-head"><div><h2 id="return-title">Return to {{ filing.created_by.full_name }}</h2><p>The filing goes back to the analyst with your comment.</p></div>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body"><div class="field"><label for="return-comment">What needs to change <span class="req">required</span></label><textarea id="return-comment" name="comment" required placeholder="For example: get written confirmation of the NAV increase from the client"></textarea></div></div>
+    <div class="dialog-foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-danger-solid" type="submit">Return filing</button></div>
+  </form>
+</dialog>
+{% endif %}
+{% if can_release and signoff %}
+<dialog id="dlg-send" class="wide" aria-labelledby="send-title">
+  <form method="post" action="/filings/{{ filing.id }}/send-to-client">
+    <div class="dialog-head"><div><h2 id="send-title">Send to the client for sign-off</h2><p>Attach the filing file and the validation record, send the message from your mailbox, then record it here.</p></div>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <div class="to-line"><span class="muted">To</span><strong>{{ filing.client.contact_name }}</strong><span class="muted">{{ filing.client.contact_email }}</span></div>
+      <div class="field"><label for="s-subject">Subject</label><input id="s-subject" name="subject" type="text" value="{{ signoff.subject }}"></div>
+      <div class="field"><label for="s-body">Message</label><textarea id="s-body" name="body" class="letter" style="min-height:300px">{{ signoff.body }}</textarea></div>
+      <div class="callout callout-info" style="margin-top:.9rem"><svg class="icon icon-sm"><use href="#i-file"/></svg><span>Attachments: <a href="/filings/{{ filing.id }}/export.csv">filing file (CSV)</a> and <a href="/filings/{{ filing.id }}/record" target="_blank">validation record</a> (print it to PDF).</span></div>
+    </div>
+    <div class="dialog-foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">Record as sent</button></div>
+  </form>
+</dialog>
+{% endif %}
+
+{% if can_release and filing.status == 'sent_to_client' %}
+<dialog id="dlg-decision" aria-labelledby="decision-title">
+  <form method="post" action="/filings/{{ filing.id }}/client-decision">
+    <div class="dialog-head"><div><h2 id="decision-title">Record the client's answer</h2><p>What did {{ filing.client.name }} reply?</p></div>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body">
+      <div class="choice-list">
+        <div class="choice"><input type="radio" name="decision" id="d-ok" value="approved" checked><label for="d-ok"><span class="choice-radio" aria-hidden="true"></span><span><strong>Approved</strong><span class="hint">The client confirms the return can be filed.</span></span></label></div>
+        <div class="choice"><input type="radio" name="decision" id="d-changes" value="changes"><label for="d-changes"><span class="choice-radio" aria-hidden="true"></span><span><strong>Changes requested</strong><span class="hint">The filing goes back to the analyst and needs a new review.</span></span></label></div>
+      </div>
+      <div class="field" style="margin-top:1rem"><label for="d-contact">Answered by</label><input id="d-contact" name="contact_name" type="text" value="{{ filing.client.contact_name }}" required></div>
+      <div class="field"><label for="d-comment">Client's comment <span class="hint" id="d-hint">optional</span></label><textarea id="d-comment" name="comment" placeholder="For example: approved by email on 30 October"></textarea></div>
+    </div>
+    <div class="dialog-foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">Record answer</button></div>
+  </form>
+</dialog>
+{% endif %}
+
+{% if can_release and filing.status == 'client_approved' %}
+<dialog id="dlg-filed" aria-labelledby="filed-title">
+  <form method="post" action="/filings/{{ filing.id }}/filed">
+    <div class="dialog-head"><div><h2 id="filed-title">Record the {{ template.regulator }} submission</h2><p>Preflight does not submit to the regulator. Submit the filing file through the official channel, then record the reference it gave you.</p></div>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body"><div class="field"><label for="f-ref">Submission reference <span class="req">required</span></label><input id="f-ref" name="reference" type="text" class="mono" required placeholder="Reference from the submission channel"></div></div>
+    <div class="dialog-foot"><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">Record as filed</button></div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var list = document.getElementById('inspector-list');
+  var details = document.querySelectorAll('.cell-detail');
+  var cells = document.querySelectorAll('.rcell');
+
+  function select(id, scroll) {
+    var target = document.querySelector('.rcell[data-cell="' + CSS.escape(id) + '"]');
+    var detail = document.querySelector('.cell-detail[data-detail="' + CSS.escape(id) + '"]');
+    if (!target || !detail) return;
+    cells.forEach(function (c) { c.classList.remove('is-selected', 'is-related'); });
+    target.classList.add('is-selected');
+    (target.dataset.related || '').trim().split(' ').filter(Boolean).forEach(function (r) {
+      var rc = document.querySelector('.rcell[data-cell="' + CSS.escape(r) + '"]'); if (rc) rc.classList.add('is-related');
+    });
+    list.hidden = true;
+    details.forEach(function (d) { d.hidden = d !== detail; });
+    if (scroll) target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    if (window.matchMedia('(max-width: 1180px)').matches) detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    history.replaceState(null, '', location.pathname + location.search.replace(/[?&]cell=[^&]*/, '') + '#' + encodeURIComponent(id));
+  }
+  function back() {
+    cells.forEach(function (c) { c.classList.remove('is-selected', 'is-related'); });
+    details.forEach(function (d) { d.hidden = true; }); list.hidden = false;
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+  cells.forEach(function (c) { c.querySelector('button').addEventListener('click', function () { select(c.dataset.cell, false); }); });
+  document.querySelectorAll('[data-select]').forEach(function (b) { b.addEventListener('click', function () { select(b.dataset.select, true); }); });
+  document.querySelectorAll('[data-back]').forEach(function (b) { b.addEventListener('click', back); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !document.querySelector('dialog[open]')) back(); });
+
+  document.querySelectorAll('[data-suggest]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var form = b.closest('.cell-detail').querySelector('.correct-form');
+      form.querySelector('input[name=value]').value = b.dataset.suggest;
+      var note = form.querySelector('textarea[name=note]'); if (!note.value) note.value = b.dataset.note;
+      note.focus();
+    });
+  });
+
+  var dComment = document.getElementById('d-comment');
+  document.querySelectorAll('input[name=decision]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      var changes = document.getElementById('d-changes').checked;
+      dComment.required = changes;
+      document.getElementById('d-hint').textContent = changes ? 'required' : 'optional';
+      dComment.placeholder = changes ? 'What does the client want changed?' : 'For example: approved by email on 30 October';
+    });
+  });
+
+  var initial = new URLSearchParams(location.search).get('cell') || decodeURIComponent(location.hash.slice(1));
+  if (initial) select(initial, true);
+
+  var copy = document.getElementById('copy-query');
+  if (copy) copy.addEventListener('click', function () {
+    var text = 'Subject: ' + document.getElementById('q-subject').value + '\n\n' + document.getElementById('q-body').value;
+    navigator.clipboard.writeText(text).then(function () { copy.querySelector('span').textContent = 'Copied'; });
+  });
+
+  document.querySelectorAll('input[name=source]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      document.querySelectorAll('[data-vpanel]').forEach(function (p) { p.hidden = p.dataset.vpanel !== r.value; });
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Map columns{% endblock %}
+{% block content %}
+{% set n_saved = rows|selectattr('source', 'equalto', 'saved')|list|length %}
+{% set n_mapped = rows|selectattr('field')|list|length %}
+{% set n_new = rows|length - n_saved %}
+<div class="page page-wide">
+  {% include "_filing_head.html" %}
+
+  <section class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>Map the client's columns to the template</h2>
+        <p style="margin-top:.2rem">
+          <span class="mono">{{ version.filename }}</span> has {{ rows|length }} columns.
+          {% if n_saved %}{{ n_saved }} {{ 'is' if n_saved == 1 else 'are' }} known from earlier files; {% endif %}{{ n_new }} {{ 'needs' if n_new == 1 else 'need' }} your confirmation.
+          {% if version.mapping_method == 'ai' %}Proposals by Claude.{% elif version.mapping_method == 'rules' %}Proposals by the offline matcher.{% endif %}
+        </p>
+      </div>
+      <span class="badge b-brand">{{ n_mapped }} of {{ template.fields|length }} fields fed</span>
+    </div>
+
+    {% if missing %}
+    <div class="panel-body" style="padding-bottom:0">
+      <div class="callout callout-warn"><svg class="icon icon-sm"><use href="#i-alert"/></svg>
+        <span>No column feeds {{ missing|length }} mandatory field{{ 's' if missing|length != 1 }}: {% for f in missing %}<strong>{{ f.label }}</strong>{{ ', ' if not loop.last }}{% endfor %}. Pick a column below, or the checks will report {{ 'it' if missing|length == 1 else 'them' }} as missing.</span></div>
+    </div>
+    {% endif %}
+
+    <form method="post" action="/filings/{{ filing.id }}/mapping" data-busy="Running the checks...">
+      <div class="table-wrap">
+        <table class="map-table">
+          <thead><tr><th>Client column and sample values</th><th aria-hidden="true"></th><th>Template field</th><th>Unit conversion</th><th>Why</th></tr></thead>
+          <tbody>
+          {% for r in rows %}
+          <tr class="{{ '' if r.field else 'unmapped' }}">
+            <td class="map-col">
+              <strong>{{ r.column }}</strong>
+              <div class="samples">{% for s in r.samples %}<code>{{ s }}</code>{% endfor %}</div>
+            </td>
+            <td class="map-arrow" aria-hidden="true"><svg class="icon icon-sm"><use href="#i-arrow"/></svg></td>
+            <td>
+              <label class="sr-only" for="field_{{ loop.index0 }}">Template field for {{ r.column }}</label>
+              <select id="field_{{ loop.index0 }}" name="field_{{ loop.index0 }}" {% if not editable %}disabled{% endif %}>
+                <option value="">Not needed for the filing</option>
+                {% for f in template.fields %}<option value="{{ f.key }}" {% if f.key == r.field %}selected{% endif %}>{{ f.label }}</option>{% endfor %}
+              </select>
+            </td>
+            <td>
+              <label class="sr-only" for="transform_{{ loop.index0 }}">Unit conversion for {{ r.column }}</label>
+              <select id="transform_{{ loop.index0 }}" name="transform_{{ loop.index0 }}" style="min-width:170px" {% if not editable %}disabled{% endif %}>
+                {% for k, label in TRANSFORMS.items() %}<option value="{{ k }}" {% if k == r.transform %}selected{% endif %}>{{ label }}</option>{% endfor %}
+              </select>
+            </td>
+            <td>
+              <div class="conf">
+                <span class="badge {{ 'b-saved' if r.source == 'saved' else 'b-ai' if r.source == 'ai' else 'b-brand' if r.field else '' }}">{% if r.source == 'ai' %}<svg class="icon icon-sm"><use href="#i-sparkle"/></svg>{% endif %}{{ SOURCE_LABELS[r.source] if r.field or r.source == 'saved' else 'No match' }}</span>
+                {% if r.field and r.source != 'saved' %}<span class="conf-bar {{ 'low' if r.confidence < 0.8 }}" title="Confidence {{ (r.confidence * 100)|round|int }}%"><span style="width:{{ (r.confidence * 100)|round|int }}%"></span></span><span class="cell-sub">{{ (r.confidence * 100)|round|int }}%</span>{% endif %}
+              </div>
+              <p class="reason">{{ r.reason }}</p>
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if editable %}
+      <div class="panel-foot">
+        <p class="small muted">Confirmed mappings are saved for {{ filing.client.name }} and reused automatically next time.</p>
+        <button class="btn btn-primary btn-lg" type="submit">Confirm mapping and run checks</button>
+      </div>
+      {% endif %}
+    </form>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}New filing{% endblock %}
+{% block content %}
+<div class="page">
+  <header class="page-head">
+    <div>
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="/overview">Overview</a><svg class="icon icon-sm"><use href="#i-chevron"/></svg><span>New filing</span></nav>
+      <h1>New filing</h1>
+      <p class="lede">Upload the fund data a client sent for a reporting period. Preflight maps its columns to the template, then checks every value.</p>
+    </div>
+  </header>
+
+  <div class="two-col">
+    <form class="panel" method="post" action="/filings" enctype="multipart/form-data" id="new-form" data-busy="Reading the file...">
+      <div class="panel-body">
+        <div class="field">
+          <span class="label" id="source-label">Client data</span>
+          <div class="segmented" role="radiogroup" aria-labelledby="source-label">
+            <input type="radio" name="source" id="src-file" value="file" checked><label for="src-file"><svg class="icon icon-sm"><use href="#i-upload"/></svg>Upload a file</label>
+            <input type="radio" name="source" id="src-sample" value="sample"><label for="src-sample"><svg class="icon icon-sm"><use href="#i-file"/></svg>Use a demo file</label>
+          </div>
+        </div>
+
+        <div class="tab-panel" data-panel="file" style="margin-top:1rem">
+          <div class="field-row">
+            <div class="field">
+              <label for="client_code">Client</label>
+              <select id="client_code" name="client_code">
+                {% for c in clients %}<option value="{{ c.code }}">{{ c.name }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label for="period_end">Reporting period end</label>
+              <input id="period_end" name="period_end" type="date" value="2026-06-30">
+            </div>
+          </div>
+          <div class="field">
+            <label class="dropzone" id="dropzone" for="file">
+              <svg class="icon"><use href="#i-upload"/></svg>
+              <strong>Drop the client's file here or browse</strong>
+              <span class="hint">Excel (.xlsx) or CSV, any column names, English or French</span>
+              <input id="file" name="file" type="file" accept=".xlsx,.csv">
+            </label>
+            <div class="file-chosen" id="file-chosen"><svg class="icon icon-sm"><use href="#i-check"/></svg><span></span></div>
+          </div>
+        </div>
+
+        <div class="tab-panel" data-panel="sample" style="margin-top:1rem" hidden>
+          <div class="choice-list">
+            {% for key, s in samples.items() %}
+            <div class="choice">
+              <input type="radio" name="sample" id="sample-{{ key }}" value="{{ key }}" {% if s.taken %}disabled{% elif loop.first %}checked{% endif %}>
+              <label for="sample-{{ key }}">
+                <span class="choice-radio" aria-hidden="true"></span>
+                <span><strong>{{ s.title }}</strong><span class="hint">{{ s.description }}{% if s.taken %} Already uploaded.{% endif %}</span><span class="file-name">{{ s.file }}</span></span>
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="panel-foot">
+        <p class="small muted">The file is fingerprinted and logged before anything else happens.</p>
+        <button class="btn btn-primary btn-lg" type="submit">Upload and map columns</button>
+      </div>
+    </form>
+
+    <aside class="panel">
+      <div class="panel-head"><h2>What happens next</h2></div>
+      <ol class="list">
+        <li class="list-row" style="align-items:flex-start"><span class="badge b-brand">1</span><div class="grow"><strong>Columns are mapped</strong><p class="small muted">Columns this client used before are recognised. New ones get a proposal from {{ 'Claude' if llm_enabled else 'the offline matcher' }} that you confirm.</p></div></li>
+        <li class="list-row" style="align-items:flex-start"><span class="badge b-brand">2</span><div class="grow"><strong>Values are checked</strong><p class="small muted">17 rules from the template: formats, LEI check digits, totals, consistency, and changes against the last period.</p></div></li>
+        <li class="list-row" style="align-items:flex-start"><span class="badge b-brand">3</span><div class="grow"><strong>You resolve the findings</strong><p class="small muted">Correct obvious issues with a reason, ask the client about the rest, justify warnings.</p></div></li>
+        <li class="list-row" style="align-items:flex-start"><span class="badge b-brand">4</span><div class="grow"><strong>A second person signs off</strong><p class="small muted">Then the filing file and its validation record are produced.</p></div></li>
+      </ol>
+    </aside>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  function showPanel(name) { document.querySelectorAll('.tab-panel').forEach(function (p) { p.hidden = p.dataset.panel !== name; }); }
+  document.querySelectorAll('input[name=source]').forEach(function (r) { r.addEventListener('change', function () { showPanel(r.value); }); });
+  var input = document.getElementById('file'), zone = document.getElementById('dropzone'), chosen = document.getElementById('file-chosen');
+  function showFile() { if (input.files.length) { chosen.querySelector('span').textContent = input.files[0].name + ' is ready to upload'; chosen.classList.add('show'); } }
+  input.addEventListener('change', showFile);
+  ['dragenter', 'dragover'].forEach(function (ev) { zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('is-over'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove('is-over'); }); });
+  zone.addEventListener('drop', function (e) { if (e.dataTransfer.files.length) { input.files = e.dataTransfer.files; showFile(); } });
+})();
+</script>
+{% endblock %}

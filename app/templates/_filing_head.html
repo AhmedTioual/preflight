@@ -1,0 +1,78 @@
+{# Shared header for a filing: breadcrumb, title, status and the preflight checklist. #}
+{% set regulator = filing_regulator(filing) %}
+{% set released = filing.status in ('approved', 'sent_to_client', 'client_approved', 'filed') %}
+{% set contact = filing.client.contact_name or filing.client.name %}
+{% set cur = filing.current %}
+{% set cc = cur.counts() %}
+{% set unjustified = cc.warnings - cc.justified %}
+<header class="page-head">
+  <div>
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/overview">Overview</a><svg class="icon icon-sm"><use href="#i-chevron"/></svg><a href="/clients/{{ filing.client.code }}">{{ filing.client.name }}</a><svg class="icon icon-sm"><use href="#i-chevron"/></svg><span>Filing {{ filing.id }}</span></nav>
+    <div class="title-row">
+      <h1>{{ filing.client.name }}, {{ filing.period_end.strftime('%B %Y') }}</h1>
+      <span class="badge badge-dot b-{{ filing.status }}">{{ STATUS_LABELS[filing.status] }}</span>
+    </div>
+    <p class="lede">Periodic fund return for the period ending {{ filing.period_end.strftime('%d %B %Y') }}. Prepared by {{ filing.created_by.full_name }}.</p>
+  </div>
+  <div class="head-actions">
+    <a class="btn" href="/filings/{{ filing.id }}/record"><svg class="icon icon-sm"><use href="#i-file"/></svg>Validation record</a>
+    {% if filing.status in ('approved', 'sent_to_client', 'client_approved', 'filed') %}<a class="btn" href="/filings/{{ filing.id }}/export.csv"><svg class="icon icon-sm"><use href="#i-download"/></svg>Filing file (CSV)</a>{% endif %}
+  </div>
+</header>
+
+<ol class="panel checklist" aria-label="Preflight checklist">
+  <li class="check done">
+    <span class="check-mark"><svg class="icon"><use href="#i-check"/></svg></span>
+    <div><strong>File received</strong><span class="cell-sub">Version {{ cur.number }}, {{ cur.rows|length }} fund{{ 's' if cur.rows|length != 1 }}</span></div>
+  </li>
+  {% if cur.mapping_confirmed %}
+  <li class="check done"><span class="check-mark"><svg class="icon"><use href="#i-check"/></svg></span>
+    <div><strong>Columns mapped</strong><span class="cell-sub">{{ 'Recognised automatically' if cur.mapping_method == 'saved' else 'Confirmed by an analyst' }}</span></div></li>
+  {% else %}
+  <li class="check todo"><span class="check-mark">2</span><div><strong>Map columns</strong><span class="cell-sub">Waiting for confirmation</span></div></li>
+  {% endif %}
+
+  {% if not cur.mapping_confirmed %}
+  <li class="check"><span class="check-mark">3</span><div><strong>Correct errors</strong><span class="cell-sub">After mapping</span></div></li>
+  <li class="check"><span class="check-mark">4</span><div><strong>Justify warnings</strong><span class="cell-sub">After mapping</span></div></li>
+  {% else %}
+    {% if cc.errors %}
+    <li class="check blocked"><span class="check-mark">3</span><div><strong>{{ cc.errors }} error{{ 's' if cc.errors != 1 }} left</strong><span class="cell-sub">{% if cc.queried %}Some asked to the client{% else %}Correct them or ask the client{% endif %}</span></div></li>
+    {% else %}
+    <li class="check done"><span class="check-mark"><svg class="icon"><use href="#i-check"/></svg></span><div><strong>No errors</strong><span class="cell-sub">All blocking rules pass</span></div></li>
+    {% endif %}
+    {% if unjustified %}
+    <li class="check warn"><span class="check-mark">4</span><div><strong>{{ unjustified }} warning{{ 's' if unjustified != 1 }} to justify</strong><span class="cell-sub">Explain each one for the reviewer</span></div></li>
+    {% else %}
+    <li class="check done"><span class="check-mark"><svg class="icon"><use href="#i-check"/></svg></span><div><strong>{{ "Warnings justified" if cc.warnings else "No warnings" }}</strong><span class="cell-sub">{{ (cc.justified ~ " with a written reason") if cc.warnings else "Nothing to explain" }}</span></div></li>
+    {% endif %}
+  {% endif %}
+
+  {% if released %}
+  <li class="check done"><span class="check-mark"><svg class="icon"><use href="#i-check"/></svg></span><div><strong>Approved</strong><span class="cell-sub">by {{ filing.reviewed_by.full_name if filing.reviewed_by else 'a reviewer' }}</span></div></li>
+  {% elif filing.status == 'in_review' %}
+  <li class="check todo"><span class="check-mark">5</span><div><strong>Second review</strong><span class="cell-sub">With a reviewer</span></div></li>
+  {% elif filing.status == 'returned' %}
+  <li class="check blocked"><span class="check-mark">5</span><div><strong>Returned</strong><span class="cell-sub">by {{ filing.reviewed_by.full_name if filing.reviewed_by else filing.client_decision_by ~ ' (client)' }}</span></div></li>
+  {% else %}
+  <li class="check"><span class="check-mark">5</span><div><strong>Second review</strong><span class="cell-sub">After submission</span></div></li>
+  {% endif %}
+
+  {% if filing.status in ('client_approved', 'filed') %}
+  <li class="check done"><span class="check-mark"><svg class="icon"><use href="#i-check"/></svg></span><div><strong>Client sign-off</strong><span class="cell-sub">by {{ filing.client_decision_by }}</span></div></li>
+  {% elif filing.status == 'sent_to_client' %}
+  <li class="check todo"><span class="check-mark">6</span><div><strong>Client sign-off</strong><span class="cell-sub">Waiting for {{ contact }}</span></div></li>
+  {% elif filing.status == 'approved' %}
+  <li class="check todo"><span class="check-mark">6</span><div><strong>Client sign-off</strong><span class="cell-sub">Send it to the client</span></div></li>
+  {% else %}
+  <li class="check"><span class="check-mark">6</span><div><strong>Client sign-off</strong><span class="cell-sub">After approval</span></div></li>
+  {% endif %}
+
+  {% if filing.status == 'filed' %}
+  <li class="check done"><span class="check-mark"><svg class="icon"><use href="#i-check"/></svg></span><div><strong>Filed with the {{ regulator }}</strong><span class="cell-sub">{{ filing.filed_at.strftime('%d %b %Y') }}</span></div></li>
+  {% elif filing.status == 'client_approved' %}
+  <li class="check todo"><span class="check-mark">7</span><div><strong>File with the {{ regulator }}</strong><span class="cell-sub">Record the submission</span></div></li>
+  {% else %}
+  <li class="check"><span class="check-mark">7</span><div><strong>File with the {{ regulator }}</strong><span class="cell-sub">After client sign-off</span></div></li>
+  {% endif %}
+</ol>

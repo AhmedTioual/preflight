@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Validation record{% endblock %}
+{% block content %}
+{% set v = filing.current %}
+{% set c = v.counts() %}
+{% set fund_labels = {} %}{% for r in v.normalized %}{% set _ = fund_labels.update({r['key']: r['label']}) %}{% endfor %}
+<div class="print-bar">
+  <nav class="crumbs" aria-label="Breadcrumb" style="margin:0"><a href="/filings/{{ filing.id }}">Back to the filing</a></nav>
+  <div class="head-actions">
+    {% if filing.status in ('approved', 'sent_to_client', 'client_approved', 'filed') %}<a class="btn" href="/filings/{{ filing.id }}/export.csv"><svg class="icon icon-sm"><use href="#i-download"/></svg>Filing file (CSV)</a>{% endif %}
+    <button class="btn btn-primary" type="button" onclick="window.print()">Print or save as PDF</button>
+  </div>
+</div>
+
+<article class="record">
+  <div class="record-head">
+    <div>
+      <p class="small muted">Validation record{% if filing.status not in ('approved', 'sent_to_client', 'client_approved', 'filed') %}, draft{% endif %}</p>
+      <h1>{{ filing.client.name }}: periodic fund return</h1>
+      <p class="muted" style="margin-top:.3rem">Period ending {{ filing.period_end.strftime('%d %B %Y') }}. Template: {{ template.name }}, version {{ template.version }}.</p>
+    </div>
+    <span class="badge badge-dot b-{{ filing.status }}" style="font-size:.85rem">{{ STATUS_LABELS[filing.status] }}</span>
+  </div>
+
+  <h2>Sign-off</h2>
+  <table>
+    <tbody>
+      <tr><th style="width:30%">Prepared by</th><td>{{ filing.created_by.full_name }}, {{ filing.created_by.job_title }}</td></tr>
+      <tr><th>Submitted</th><td>{{ filing.submitted_at.strftime('%d %B %Y, %H:%M UTC') if filing.submitted_at else 'Not yet' }}</td></tr>
+      <tr><th>Reviewed by</th><td>{% if filing.reviewed_by %}{{ filing.reviewed_by.full_name }}, {{ filing.reviewed_by.job_title }}, on {{ filing.reviewed_at.strftime('%d %B %Y, %H:%M UTC') }}{% else %}Not yet{% endif %}</td></tr>
+      <tr><th>Sent to client</th><td>{% if filing.sent_to_client_at %}{{ filing.sent_to_client_at.strftime('%d %B %Y, %H:%M UTC') }} by {{ filing.sent_to_client_by.full_name }}, to {{ filing.client.contact_name }}{% else %}Not yet{% endif %}</td></tr>
+      <tr><th>Client sign-off</th><td>{% if filing.client_decision == 'approved' %}Approved by {{ filing.client_decision_by }} ({{ filing.client.name }}) on {{ filing.client_decision_at.strftime('%d %B %Y') }}, recorded by {{ filing.client_decision_recorded_by.full_name }}{% if filing.client_comment %}: "{{ filing.client_comment }}"{% endif %}{% elif filing.client_decision == 'changes' %}Changes requested by {{ filing.client_decision_by }}: "{{ filing.client_comment }}"{% else %}Not yet{% endif %}</td></tr>
+      <tr><th>Filed with the {{ template.regulator }}</th><td>{% if filing.filed_at %}{{ filing.filed_at.strftime('%d %B %Y') }}, reference <span class="mono">{{ filing.filing_reference }}</span>, recorded by {{ filing.filed_by.full_name }}{% else %}Not yet{% endif %}</td></tr>
+      {% if filing.review_comment %}<tr><th>Reviewer comment</th><td>{{ filing.review_comment }}</td></tr>{% endif %}
+    </tbody>
+  </table>
+
+  <h2>Files received</h2>
+  <table>
+    <thead><tr><th>Version</th><th>File</th><th>Received</th><th>SHA-256 fingerprint</th></tr></thead>
+    <tbody>
+    {% for ver in filing.versions %}
+    <tr><td>{{ ver.number }}</td><td class="mono">{{ ver.filename }}</td><td class="nowrap">{{ ver.uploaded_at.strftime('%d %b %Y, %H:%M') }}<div class="cell-sub">{{ ver.uploaded_by.full_name }}</div></td><td class="hash" style="word-break:break-all">{{ ver.sha256 }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Checks on the final version</h2>
+  <p class="small">{{ template.rules|length }} rules run on {{ v.rows|length }} funds. {{ c.errors }} error{{ 's' if c.errors != 1 }} remaining, {{ c.warnings }} warning{{ 's' if c.warnings != 1 }}, of which {{ c.justified }} justified.</p>
+  {% if v.findings %}
+  <table style="margin-top:.6rem">
+    <thead><tr><th>Fund</th><th>Rule</th><th>Finding</th><th>Resolution</th></tr></thead>
+    <tbody>
+    {% for f in v.findings %}
+    <tr><td>{{ f.fund_label }}</td><td class="mono small">{{ f.rule_id }}</td><td class="small">{{ f.message }}</td><td class="small">{% if f.state == 'justified' %}Justified by {{ f.actor.full_name if f.actor else 'analyst' }}: {{ f.note }}{% else %}{{ STATE_LABELS[f.state] }}{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <h2>Corrections made by the service provider</h2>
+  {% if filing.overrides %}
+  <table>
+    <thead><tr><th>Fund</th><th>Field</th><th>Client value</th><th>Corrected value</th><th>Reason</th></tr></thead>
+    <tbody>
+    {% for o in filing.overrides %}
+    <tr><td>{{ fund_labels.get(o.fund_key, o.fund_key) }}</td><td>{{ template.field(o.field).label }}</td><td class="mono small">{{ o.original_value }}</td><td class="mono small">{{ o.new_value }}</td><td class="small">{{ o.note }}<div class="cell-sub">{{ o.user.full_name }}, {{ o.created_at.strftime('%d %b %Y') }}</div></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="small muted">None. All values come from the client's files.</p>{% endif %}
+
+  <h2>Queries sent to the client</h2>
+  {% if filing.queries %}
+  <table>
+    <thead><tr><th>Date</th><th>On version</th><th>Subject</th><th class="num">Points</th></tr></thead>
+    <tbody>{% for q in filing.queries %}<tr><td class="nowrap">{{ q.sent_at.strftime('%d %b %Y') }}</td><td>{{ q.version_number }}</td><td>{{ q.subject }}<div class="cell-sub">{{ q.sent_by.full_name }}</div></td><td class="num">{{ q.finding_count }}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="small muted">None.</p>{% endif %}
+
+  <h2>Event log</h2>
+  <table>
+    <tbody>{% for e in history %}<tr><td class="nowrap small">{{ e.timestamp.strftime('%d %b %Y, %H:%M:%S') }}</td><td class="small">{{ e.user.full_name if e.user else 'System' }}</td><td class="small">{{ e.action }}</td><td class="hash">{{ e.entry_hash[:12] }}</td></tr>{% endfor %}</tbody>
+  </table>
+
+  <p class="statement">This record was produced by Preflight from the audit trail. The audit trail is hash-chained and was {{ 'verified intact' if chain.valid else 'found modified' }} when this page was generated. Demo application with fictional data and a demonstration template.</p>
+</article>
+{% endblock %}

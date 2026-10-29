@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Audit trail{% endblock %}
+{% block content %}
+{% set labels = {
+  'system.seeded': 'Demo data loaded', 'auth.login': 'Signed in', 'auth.login_failed': 'Failed sign-in', 'auth.api_token': 'API token issued',
+  'filing.created': 'Filing opened', 'version.uploaded': 'File uploaded', 'mapping.reused': 'Columns recognised automatically',
+  'mapping.confirmed': 'Column mapping confirmed', 'value.corrected': 'Value corrected', 'warning.justified': 'Warning justified',
+  'query.sent': 'Client query recorded', 'filing.submitted': 'Submitted for review', 'filing.approved': 'Filing approved',
+  'filing.returned': 'Filing returned', 'client.signoff_requested': 'Sent to client for sign-off', 'client.approved': 'Client signed off', 'client.changes_requested': 'Client asked for changes', 'filing.filed': 'Recorded as filed', 'filing.exported': 'Filing file downloaded'} %}
+<div class="page">
+  <header class="page-head">
+    <div>
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="/overview">Overview</a><svg class="icon icon-sm"><use href="#i-chevron"/></svg><span>Audit trail</span></nav>
+      <h1>Audit trail</h1>
+      <p class="lede">Every upload, correction and decision, in order. Each entry carries a fingerprint of the one before it, so any later edit or deletion is detected.</p>
+    </div>
+  </header>
+  {% if chain.valid %}
+  <section class="panel chain"><svg class="icon"><use href="#i-shield"/></svg><div><strong>Log intact</strong><p>All {{ chain.entries }} entries match their fingerprints. Nothing has been edited or removed.</p></div></section>
+  {% else %}
+  <section class="panel chain chain-bad"><svg class="icon"><use href="#i-shield-x"/></svg><div><strong>Log modified at entry {{ chain.broken_at }}</strong><p>This entry or one before it was changed outside the application. Escalate to IT security.</p></div></section>
+  {% endif %}
+  <div class="panel table-wrap">
+    <table>
+      <thead><tr><th class="num">#</th><th>When (UTC)</th><th>Who</th><th>Event</th><th>Details</th><th>Fingerprint</th></tr></thead>
+      <tbody>
+      {% for e in entries %}{% set d = e.details|fromjson %}
+      <tr>
+        <td class="num muted">{{ e.id }}</td>
+        <td class="nowrap">{{ e.timestamp.strftime('%d %b %Y') }}<div class="cell-sub">{{ e.timestamp.strftime('%H:%M:%S') }}</div></td>
+        <td class="nowrap">{{ e.user.full_name if e.user else 'System' }}</td>
+        <td><div style="font-weight:500">{{ labels.get(e.action, e.action) }}</div>{% if e.filing_id %}<a class="small" href="/filings/{{ e.filing_id }}">Filing {{ e.filing_id }}</a>{% endif %}</td>
+        <td class="details-cell">{% for k, v in d.items() if v not in (None, '', [], {}) %}{{ k.replace('_', ' ') }}: <b>{{ v if v is string or v is number else v|tojson }}</b>{{ '; ' if not loop.last }}{% endfor %}</td>
+        <td><span class="hash" title="Previous: {{ e.prev_hash }}">{{ e.entry_hash[:10] }}</span></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

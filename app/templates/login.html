@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block body %}
+<div class="login">
+  <section class="login-story">
+    <a class="brand" href="/login">
+      <svg class="brand-mark" viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="7" fill="#4F46E5"/><path d="M6.5 8.5h8M6.5 12.5h5M6.5 16.5h3.5" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".75"/><path d="M13 16.5l2.6 2.6L20 13.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Preflight
+    </a>
+    <div>
+      <h1>Client data in, a clean filing out.</h1>
+      <p class="lede">Every client sends fund data in its own format. Preflight maps it to the reporting template, checks every value against the rules, and gets a second reviewer's sign-off before anything is filed.</p>
+    </div>
+    <figure style="margin:0">
+      <div class="specimen" aria-label="Example of learned column mappings">
+        <div class="specimen-head"><span>Client column</span><span>Template field</span></div>
+        <div class="specimen-row"><code>Net Asset Val (EUR k)</code><svg class="icon icon-sm muted"><use href="#i-arrow"/></svg><span>Net asset value <span class="badge b-saved">x 1,000</span></span></div>
+        <div class="specimen-row"><code>Liquidité 1 jour</code><svg class="icon icon-sm muted"><use href="#i-arrow"/></svg><span>Liquidity, 1 day <span class="badge b-saved">fraction to %</span></span></div>
+        <div class="specimen-row"><code>LEI code</code><svg class="icon icon-sm muted"><use href="#i-arrow"/></svg><span>Fund LEI <span class="badge b-error">check digits fail</span></span></div>
+      </div>
+      <figcaption class="specimen-caption">Mappings are confirmed once per client, then reused every quarter.</figcaption>
+    </figure>
+  </section>
+
+  <section class="login-form">
+    <div class="login-card">
+      <h2>Sign in</h2>
+      <p>Use your work account.</p>
+      {% if login_error %}<div class="flash flash-error" role="alert"><svg class="icon"><use href="#i-alert"/></svg><div>{{ login_error }}</div></div>{% endif %}
+      <form method="post" action="/login" id="login-form">
+        <div class="field"><label for="username">Username</label><input id="username" name="username" type="text" autocomplete="username" value="{{ username or '' }}" required autofocus></div>
+        <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
+        <button class="btn btn-primary btn-lg btn-block" type="submit" style="margin-top:1.1rem">Sign in</button>
+      </form>
+      <div class="demo-accounts">
+        <p>Demo accounts. Pick one to sign in.</p>
+        <button class="demo-btn" type="button" data-user="analyst"><span class="avatar" aria-hidden="true">AM</span><span><strong>Alice Martin</strong><span class="hint">Reporting analyst. Prepares filings.</span></span></button>
+        <button class="demo-btn" type="button" data-user="reviewer"><span class="avatar" aria-hidden="true" style="background:#dcfce7;color:#166534">CD</span><span><strong>Claire Dubois</strong><span class="hint">Senior reviewer. Approves or returns filings.</span></span></button>
+        <button class="demo-btn" type="button" data-user="analyst2"><span class="avatar" aria-hidden="true" style="background:#f1f5f9;color:#334155">MW</span><span><strong>Marc Weber</strong><span class="hint">Reporting analyst. Prepared the Riverbend filings.</span></span></button>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('.demo-btn').forEach(function (b) {
+  b.addEventListener('click', function () {
+    document.getElementById('username').value = b.dataset.user;
+    document.getElementById('password').value = 'demo1234';
+    document.getElementById('login-form').submit();
+  });
+});
+</script>
+{% endblock %}

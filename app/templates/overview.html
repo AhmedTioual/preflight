@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+{% set is_maker = user.role in ('maker', 'admin') %}
+<div class="page">
+  <header class="page-head">
+    <div>
+      <h1>Overview</h1>
+      <p class="lede">
+        {% if attention %}{{ attention|length }} filing{{ 's' if attention|length != 1 }} {{ 'need' if attention|length != 1 else 'needs' }} your attention.
+        {% else %}Nothing is waiting for you right now.{% endif %}
+      </p>
+    </div>
+    {% if is_maker %}<div class="head-actions"><a class="btn btn-primary" href="/filings/new"><svg class="icon"><use href="#i-upload"/></svg>New filing</a></div>{% endif %}
+  </header>
+
+  <section class="panel stats" aria-label="Key figures">
+    <div class="stat"><div class="stat-label">Filings in progress</div><div class="stat-value">{{ stats.open }}</div><div class="stat-note">being prepared by analysts</div></div>
+    <div class="stat"><div class="stat-label">Waiting for review</div><div class="stat-value">{{ stats.in_review }}</div><div class="stat-note">need a second person's sign-off</div></div>
+    <div class="stat"><div class="stat-label">Issues caught before filing</div><div class="stat-value">{{ stats.caught }}</div><div class="stat-note">in the first file clients sent</div></div>
+    <div class="stat">
+      <div class="stat-label">First-time-right files</div>
+      <div class="stat-value">{{ stats.ftr[0] }}<small> of {{ stats.ftr[1] }}</small></div>
+      <div class="bar-mini"><span style="width:{{ (100 * stats.ftr[0] / stats.ftr[1]) if stats.ftr[1] else 0 }}%"></span></div>
+    </div>
+  </section>
+
+  <div class="two-col section">
+    <section class="panel">
+      <div class="panel-head"><h2>Needs your attention</h2><p>{{ 'Filings prepared by someone else' if is_reviewer and not is_maker else 'Your open work' }}</p></div>
+      {% if attention %}
+      <ul class="list">
+        {% for f in attention %}{% set c = f.current.counts() if f.current else {} %}
+        <li class="list-row">
+          <div class="grow">
+            <a class="cell-title" href="/filings/{{ f.id }}">{{ f.client.name }}</a>
+            <div class="cell-sub">Period ending {{ f.period_end.strftime('%d %b %Y') }}, version {{ f.current.number }}{% if f.status == 'in_review' %}, from {{ f.created_by.full_name }}{% endif %}</div>
+          </div>
+          <span class="counts">
+            {% if f.status == 'mapping' %}<span class="badge b-mapping">Mapping to confirm</span>
+            {% elif f.status == 'approved' %}<span class="badge b-brand">Send to client</span>
+            {% elif f.status == 'sent_to_client' %}<span class="badge b-sent_to_client">Waiting for client sign-off</span>
+            {% elif f.status == 'client_approved' %}<span class="badge b-client_approved">Ready to file with the {{ filing_regulator(f) }}</span>
+            {% else %}
+              {% if c.errors %}<span class="badge b-error">{{ c.errors }} error{{ 's' if c.errors != 1 }}</span>{% endif %}
+              {% if c.warnings - c.justified %}<span class="badge b-warning">{{ c.warnings - c.justified }} to justify</span>{% endif %}
+              {% if f.status == 'in_review' %}<span class="badge b-in_review">In review</span>{% elif f.status == 'returned' %}<span class="badge b-returned">Returned</span>{% elif not c.errors and not (c.warnings - c.justified) %}<span class="badge b-ok">Ready to submit</span>{% endif %}
+            {% endif %}
+          </span>
+          <a class="btn btn-sm" href="/filings/{{ f.id }}">{{ 'Review' if f.status == 'in_review' else 'Open' }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="empty"><svg class="icon"><use href="#i-inbox"/></svg><strong>All clear</strong><p class="small">{{ 'New client files you upload will appear here.' if is_maker else 'Filings submitted for review will appear here.' }}</p>
+        {% if is_maker %}<a class="btn btn-primary" href="/filings/new">New filing</a>{% endif %}</div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Client data quality</h2><a class="small" href="/clients">All clients</a></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Client</th><th class="num">Clean first files</th><th>Most frequent issue</th></tr></thead>
+          <tbody>
+          {% for q in quality %}
+          <tr class="row-link" data-href="/clients/{{ q.client.code }}">
+            <td class="nowrap"><a class="cell-title" href="/clients/{{ q.client.code }}">{{ q.client.name }}</a><div class="cell-sub">{{ q.filings }} filing{{ 's' if q.filings != 1 }}</div></td>
+            <td class="num">{% if q.first_time_right[1] %}{{ q.first_time_right[0] }} of {{ q.first_time_right[1] }}{% else %}<span class="muted">No files yet</span>{% endif %}</td>
+            <td class="small">{{ q.top_issue or 'None so far' }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <section class="section">
+    <div class="section-head"><h2>All filings</h2><p>{{ filings|length }} in total</p></div>
+    <div class="panel table-wrap">
+      {% if filings %}
+      <table>
+        <thead><tr><th>Client</th><th>Period end</th><th>Status</th><th>Findings on current version</th><th>Prepared by</th><th class="num">Versions</th></tr></thead>
+        <tbody>
+        {% for f in filings %}{% set c = f.current.counts() %}
+        <tr class="row-link" data-href="/filings/{{ f.id }}">
+          <td><a class="cell-title" href="/filings/{{ f.id }}">{{ f.client.name }}</a></td>
+          <td class="nowrap">{{ f.period_end.strftime('%d %b %Y') }}</td>
+          <td><span class="badge badge-dot b-{{ f.status }}">{{ STATUS_LABELS[f.status] }}</span></td>
+          <td>
+            {% if f.status == 'mapping' %}<span class="muted small">Not checked yet</span>
+            {% elif not c.total %}<span class="badge b-ok">No findings</span>
+            {% else %}<span class="counts">
+              {% if c.errors %}<span class="badge b-error">{{ c.errors }} error{{ 's' if c.errors != 1 }}</span>{% endif %}
+              {% if c.warnings %}<span class="badge b-warning">{{ c.warnings }} warning{{ 's' if c.warnings != 1 }}</span>{% endif %}
+              {% if c.justified %}<span class="badge b-justified">{{ c.justified }} justified</span>{% endif %}
+            </span>{% endif %}
+          </td>
+          <td>{{ f.created_by.full_name }}</td>
+          <td class="num">{{ f.versions|length }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty"><svg class="icon"><use href="#i-file"/></svg><strong>No filings yet</strong></div>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Clients{% endblock %}
+{% block content %}
+<div class="page">
+  <header class="page-head">
+    <div>
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="/overview">Overview</a><svg class="icon icon-sm"><use href="#i-chevron"/></svg><span>Clients</span></nav>
+      <h1>Clients</h1>
+      <p class="lede">Each client has a fund register used for cross-checks, and the column mappings learned from its files.</p>
+    </div>
+  </header>
+  <div class="panel table-wrap">
+    <table>
+      <thead><tr><th>Client</th><th>Contact</th><th class="num">Funds</th><th class="num">Learned columns</th><th class="num">Filings</th><th class="num">Clean first files</th></tr></thead>
+      <tbody>
+      {% for q in quality %}{% set c = q.client %}
+      <tr class="row-link" data-href="/clients/{{ c.code }}">
+        <td><a class="cell-title" href="/clients/{{ c.code }}">{{ c.name }}</a><div class="cell-sub">{{ c.client_type }}</div></td>
+        <td>{{ c.contact_name }}<div class="cell-sub">{{ c.contact_email }}</div></td>
+        <td class="num">{{ c.funds|length }}</td>
+        <td class="num">{{ q.mappings }}</td>
+        <td class="num">{{ q.filings }}</td>
+        <td class="num">{% if q.first_time_right[1] %}{{ q.first_time_right[0] }} of {{ q.first_time_right[1] }}{% else %}<span class="muted">None yet</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

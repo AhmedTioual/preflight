@@ -1,0 +1,20 @@
+[project]
+name = "preflight"
+version = "0.1.0"
+description = "Pre-submission checks for regulatory fund filings: AI-assisted mapping, rule-based validation, four-eyes sign-off."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["B008"]  # FastAPI's Depends() in default arguments is idiomatic
+
+[tool.ruff.lint.per-file-ignores]
+"app/services/mapping.py" = ["E501"]  # JSON schema descriptions for the LLM tool

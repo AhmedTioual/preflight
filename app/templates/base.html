@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Preflight{% endblock %} | Preflight</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Crect width='26' height='26' rx='6' fill='%234F46E5'/%3E%3Cpath d='M6.5 8.5h8M6.5 12.5h5M6.5 16.5h3.5' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M13 16.5l2.6 2.6L20 13.5' stroke='white' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preload" href="{{ url_for('static', path='fonts/inter-latin-400-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{{ url_for('static', path='fonts/fonts.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-overview" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></symbol>
+  <symbol id="i-clients" viewBox="0 0 24 24"><path d="M4 20V8l8-4 8 4v12"/><path d="M9 20v-5h6v5M4 20h16"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-shield-x" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M9.5 9.5l5 5M14.5 9.5l-5 5"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="M8.5 8l-4.5 4 4.5 4M15.5 8l4.5 4-4.5 4"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M9 16l-4-4 4-4M5 12h10"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M8.5 12.5h7M8.5 16h7M11.5 12.5V19"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3 13l3-8h12l3 8v5.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/><path d="M3 13h5l1.5 2.5h5L16 13h5"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M4 7l8 6 8-6"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M4.5 12L20 4.5 15 20l-3-6.5z"/><path d="M12 13.5l8-9"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4.5 12h15M14 6.5l5.5 5.5-5.5 5.5"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></symbol>
+  <symbol id="i-columns" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 4.5v15M14.5 4.5v15"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a1.5 1.5 0 0 0-1.5-1.5H6A1.5 1.5 0 0 0 4.5 6v8A1.5 1.5 0 0 0 6 15.5h2.5"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5M4 4v4.5h4.5"/><path d="M12 8v4.5l3 2"/></symbol>
+</svg>
+
+{% block body %}
+<div class="shell">
+  <aside class="sidebar">
+    <a class="brand" href="/overview" aria-label="Preflight home">
+      <svg class="brand-mark" viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="7" fill="#4F46E5"/><path d="M6.5 8.5h8M6.5 12.5h5M6.5 16.5h3.5" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".75"/><path d="M13 16.5l2.6 2.6L20 13.5" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Preflight
+    </a>
+    <nav class="nav" aria-label="Main">
+      <a href="/overview" {% if active == 'overview' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-overview"/></svg>Overview</a>
+      {% if user and user.role in ('maker', 'admin') %}
+      <a href="/filings/new" {% if active == 'new' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-upload"/></svg>New filing</a>
+      {% endif %}
+      <a href="/clients" {% if active == 'clients' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-clients"/></svg>Clients</a>
+      <a href="/audit" {% if active == 'audit' %}aria-current="page"{% endif %}><svg class="icon"><use href="#i-shield"/></svg>Audit trail</a>
+      <div class="nav-group">Developers</div>
+      <a href="/docs" target="_blank" rel="noopener"><svg class="icon"><use href="#i-code"/></svg>API reference</a>
+    </nav>
+    {% if user %}
+    <div class="sidebar-foot">
+      <div class="mode" title="How client columns are matched to the template">
+        <span class="mode-dot {{ 'on' if llm_enabled else '' }}"></span>
+        <div><strong>{{ 'AI column mapping on' if llm_enabled else 'Offline mapping' }}</strong>{{ 'Claude proposes, analysts confirm' if llm_enabled else 'Aliases and fuzzy matching, no API key set' }}</div>
+      </div>
+      <div class="me">
+        <span class="avatar" aria-hidden="true">{{ user.initials }}</span>
+        <div class="me-text"><strong>{{ user.full_name }}</strong><span>{{ user.job_title }}</span></div>
+        <form method="post" action="/logout"><button class="icon-btn" type="submit" title="Sign out" aria-label="Sign out"><svg class="icon"><use href="#i-logout"/></svg></button></form>
+      </div>
+    </div>
+    {% endif %}
+  </aside>
+
+  <main class="main" id="main">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% endblock %}
+
+<div class="toasts" aria-live="polite" aria-atomic="false">
+  {% if error %}
+  <div class="toast toast-error" role="alert">
+    <svg class="icon"><use href="#i-alert"/></svg>
+    <div class="toast-body"><strong>Action not completed</strong><p>{{ error }}</p></div>
+    <button class="icon-btn" type="button" data-dismiss aria-label="Dismiss"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
+  </div>
+  {% endif %}
+  {% if message %}
+  <div class="toast toast-ok" role="status" data-autohide>
+    <svg class="icon"><use href="#i-check-circle"/></svg>
+    <div class="toast-body"><strong>Done</strong><p>{{ message }}</p></div>
+    <button class="icon-btn" type="button" data-dismiss aria-label="Dismiss"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
+    <span class="toast-timer" aria-hidden="true"></span>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  var url = new URL(window.location.href);
+  if (url.searchParams.has('msg') || url.searchParams.has('error')) {
+    url.searchParams.delete('msg'); url.searchParams.delete('error');
+    history.replaceState(null, '', url.pathname + (url.search || '') + url.hash);
+  }
+  function dismiss(el) { if (!el.isConnected) return; el.classList.add('is-leaving'); setTimeout(function () { el.remove(); }, 220); }
+  document.querySelectorAll('.toast [data-dismiss]').forEach(function (b) { b.addEventListener('click', function () { dismiss(b.closest('.toast')); }); });
+  document.querySelectorAll('.toast[data-autohide]').forEach(function (el) {
+    var timer = setTimeout(function () { dismiss(el); }, 6000);
+    el.addEventListener('mouseenter', function () { clearTimeout(timer); el.classList.add('is-paused'); });
+    el.addEventListener('mouseleave', function () { el.classList.remove('is-paused'); timer = setTimeout(function () { dismiss(el); }, 2500); });
+  });
+  document.querySelectorAll('tr[data-href]').forEach(function (row) {
+    row.addEventListener('click', function (e) { if (!e.target.closest('a, button')) window.location = row.dataset.href; });
+  });
+  document.querySelectorAll('[data-open]').forEach(function (b) {
+    b.addEventListener('click', function () { var d = document.getElementById(b.dataset.open); if (d) d.showModal(); });
+  });
+  document.querySelectorAll('dialog [data-close]').forEach(function (b) { b.addEventListener('click', function () { b.closest('dialog').close(); }); });
+  document.querySelectorAll('form[data-busy]').forEach(function (f) {
+    f.addEventListener('submit', function () { var b = f.querySelector('[type=submit]'); if (b) { b.disabled = true; b.textContent = f.dataset.busy; } });
+  });
+})();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

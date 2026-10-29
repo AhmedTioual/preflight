@@ -1,0 +1,280 @@
+# Demo reporting template: "Periodic fund return".
+#
+# A deliberately small, illustrative slice inspired by periodic regulatory
+# fund reporting (for example AIFMD reporting). It is NOT an official
+# regulatory template. Fields and rules are configuration so that analysts
+# can review them without reading Python.
+
+template:
+  id: fund_return_v1
+  name: Periodic fund return (demo template)
+  regulator: CSSF
+  version: "1.0"
+
+fields:
+  - key: fund_name
+    label: Fund name
+    type: text
+    required: true
+    description: Legal name of the fund or sub-fund.
+    aliases: [fund name, fund, name of fund, sub-fund, sub fund, nom du fonds, compartiment, fonds]
+
+  - key: fund_lei
+    label: Fund LEI
+    type: lei
+    required: true
+    description: 20-character Legal Entity Identifier of the fund (ISO 17442).
+    aliases: [lei, lei code, fund lei, legal entity identifier, code lei, identifiant lei]
+
+  - key: period_end
+    label: Reporting period end
+    type: date
+    required: true
+    description: Last day of the reporting period.
+    aliases: [period end, reporting date, reporting period end, as of date, as of, nav date, date de reference, date de référence, fin de periode, fin de période]
+
+  - key: base_currency
+    label: Base currency
+    type: currency
+    required: true
+    description: Base currency of the fund, ISO 4217 code.
+    aliases: [base currency, currency, ccy, base ccy, devise, devise de reference, devise de référence]
+
+  - key: strategy
+    label: Main strategy
+    type: enum
+    required: true
+    description: Predominant investment strategy.
+    aliases: [strategy, investment strategy, main strategy, predominant strategy, strategie, stratégie, stratégie d'investissement]
+    values:
+      equity: [equity, equities, long only equity, long/short equity, long short equity, actions]
+      fixed_income: [fixed income, bonds, bond, credit, obligations, obligataire]
+      multi_asset: [multi asset, multi-asset, balanced, mixed, diversified, diversifie, diversifié]
+      real_estate: [real estate, property, immobilier]
+      private_equity: [private equity, buyout, venture capital, capital investissement]
+      fund_of_funds: [fund of funds, fof, fonds de fonds]
+
+  - key: nav
+    label: Net asset value
+    type: amount
+    required: true
+    description: Net asset value at period end, in base currency (full units).
+    aliases: [nav, net asset value, net assets, total net assets, nav total, actif net, valeur nette d'inventaire, vni]
+
+  - key: gross_leverage_pct
+    label: Leverage, gross method
+    type: percent
+    required: true
+    description: Exposure under the gross method, as % of NAV (100 = no leverage).
+    aliases: [gross leverage, leverage gross, gross method, gross lev, levier brut, effet de levier brut, methode brute]
+
+  - key: commitment_leverage_pct
+    label: Leverage, commitment method
+    type: percent
+    required: true
+    description: Exposure under the commitment method, as % of NAV.
+    aliases: [commitment leverage, leverage commitment, commitment method, commitment lev, levier engagement, effet de levier engagement, methode de l'engagement]
+
+  - key: liq_1d
+    label: Liquidity, 1 day or less
+    type: percent
+    required: true
+    description: Share of the portfolio that can be liquidated within 1 day, % of NAV.
+    aliases: [liquidity 1 day, liq 1d, liq <1 day, liq. <1 day, 0-1 day, liquidite 1 jour, liquidité 1 jour, liq 1j]
+
+  - key: liq_2_7d
+    label: Liquidity, 2 to 7 days
+    type: percent
+    required: true
+    description: Share liquidated within 2 to 7 days, % of NAV.
+    aliases: [liquidity 2-7 days, liq 2-7d, liq. 2-7 days, 2-7 days, liquidite 2-7 jours, liquidité 2-7 jours, liq 2-7j]
+
+  - key: liq_8_30d
+    label: Liquidity, 8 to 30 days
+    type: percent
+    required: true
+    description: Share liquidated within 8 to 30 days, % of NAV.
+    aliases: [liquidity 8-30 days, liq 8-30d, liq. 8-30 days, 8-30 days, liquidite 8-30 jours, liquidité 8-30 jours, liq 8-30j]
+
+  - key: liq_31_90d
+    label: Liquidity, 31 to 90 days
+    type: percent
+    required: true
+    description: Share liquidated within 31 to 90 days, % of NAV.
+    aliases: [liquidity 31-90 days, liq 31-90d, liq. 31-90 days, 31-90 days, liquidite 31-90 jours, liquidité 31-90 jours, liq 31-90j]
+
+  - key: liq_over_90d
+    label: Liquidity, over 90 days
+    type: percent
+    required: true
+    description: Share needing more than 90 days to liquidate, % of NAV.
+    aliases: [liquidity over 90 days, liq >90d, liq. >90 days, over 90 days, more than 90 days, liquidite plus de 90 jours, liquidité > 90 jours, liq >90j]
+
+  - key: investor_count
+    label: Number of investors
+    type: integer
+    required: true
+    description: Number of investors at period end.
+    aliases: [number of investors, investors, nb investors, nb of investors, investor count, nombre d'investisseurs, nb investisseurs]
+
+  - key: top5_investor_pct
+    label: Top 5 investors
+    type: percent
+    required: true
+    description: Share of NAV held by the 5 largest investors.
+    aliases: [top 5 investors, top five investors, top 5 investors %, concentration top 5, 5 principaux investisseurs, top 5 investisseurs]
+
+  - key: largest_investor_pct
+    label: Largest investor
+    type: percent
+    required: true
+    description: Share of NAV held by the single largest investor.
+    aliases: [largest investor, top investor, largest investor %, single largest investor, premier investisseur, plus grand investisseur]
+
+rules:
+  - id: REQ-FIELD
+    name: Mandatory fields are filled in
+    severity: error
+    check: required
+    explain: "{label} is mandatory and is empty for this fund."
+    ask: "{label} is missing. Could you provide it?"
+
+  - id: FMT-VALUE
+    name: Values have the expected format
+    severity: error
+    check: format
+    explain: "{label} could not be read: \"{value}\" is not a valid {type_label}."
+    ask: "We could not read {label} (\"{value}\"). Could you check this value?"
+
+  - id: LEI-CHECKSUM
+    name: LEI is valid under ISO 17442
+    severity: error
+    check: lei
+    field: fund_lei
+    explain: "\"{value}\" is not a valid LEI: it must be 20 characters and pass the ISO 17442 check digits."
+    ask: "The LEI \"{value}\" is not valid. Could you confirm the fund's LEI?"
+
+  - id: LEI-REGISTER
+    name: LEI is in the client's fund register
+    severity: warning
+    check: in_register
+    field: fund_lei
+    explain: "This LEI is not in {client}'s fund register. Confirm it is a new fund before filing."
+    ask: "The LEI {value} is not in the fund list we hold for you. Is this a new fund?"
+
+  - id: LEI-UNIQUE
+    name: Each fund appears once
+    severity: error
+    check: unique
+    field: fund_lei
+    explain: "This LEI appears on more than one row of the file."
+    ask: "The LEI {value} appears on more than one row. Could you check which row is correct?"
+
+  - id: PERIOD-MATCH
+    name: Period end matches the filing period
+    severity: error
+    check: equals_period
+    field: period_end
+    explain: "The file says {value}, but this filing is for the period ending {expected}."
+    ask: "The file is dated {value}, but we expected data as of {expected}. Could you confirm the reporting date?"
+
+  - id: CCY-ISO
+    name: Currency is a valid ISO 4217 code
+    severity: error
+    check: currency
+    field: base_currency
+    explain: "\"{value}\" is not a recognised ISO 4217 currency code."
+    ask: "The currency \"{value}\" is not a standard currency code. Could you confirm the base currency?"
+
+  - id: STRATEGY-ALLOWED
+    name: Strategy is one of the allowed values
+    severity: error
+    check: enum
+    field: strategy
+    explain: "\"{value}\" is not an allowed strategy. Expected one of: {expected}."
+    ask: "The strategy \"{value}\" does not match the regulatory categories. Could you confirm the main strategy?"
+
+  - id: NAV-POSITIVE
+    name: NAV is positive
+    severity: error
+    check: min
+    field: nav
+    min: 0
+    exclusive: true
+    explain: "NAV must be greater than zero; the file reports {value}."
+    ask: "The NAV is reported as {value}. Could you send the correct NAV?"
+
+  - id: PCT-RANGE
+    name: Percentages are between 0 and 100
+    severity: error
+    check: range
+    fields: [liq_1d, liq_2_7d, liq_8_30d, liq_31_90d, liq_over_90d, top5_investor_pct, largest_investor_pct]
+    min: 0
+    max: 100
+    explain: "{label} is {value}%, outside the 0-100% range."
+    ask: "{label} is reported as {value}%. Could you check this figure?"
+
+  - id: LEV-MIN
+    name: Leverage is not negative
+    severity: error
+    check: range
+    fields: [gross_leverage_pct, commitment_leverage_pct]
+    min: 0
+    max: 100000
+    explain: "{label} is {value}%, which is not possible."
+    ask: "{label} is reported as {value}%. Could you check this figure?"
+
+  - id: LIQ-SUM
+    name: Liquidity buckets add up to 100%
+    severity: error
+    check: sum_equals
+    fields: [liq_1d, liq_2_7d, liq_8_30d, liq_31_90d, liq_over_90d]
+    target: 100
+    tolerance: 0.5
+    explain: "The five liquidity buckets add up to {value}%, not 100%. At least one bucket is wrong or missing."
+    ask: "The five liquidity buckets add up to {value}% instead of 100%. Could you send the corrected breakdown?"
+
+  - id: INV-COUNT
+    name: Number of investors is at least 1
+    severity: error
+    check: min
+    field: investor_count
+    min: 1
+    explain: "A fund must report at least one investor; the file reports {value}."
+    ask: "The number of investors is reported as {value}. Could you confirm it?"
+
+  - id: INV-CONCENTRATION
+    name: Largest investor does not exceed the top 5
+    severity: error
+    check: less_or_equal
+    field: largest_investor_pct
+    other: top5_investor_pct
+    explain: "The largest investor holds {value}%, more than the top 5 investors together ({expected}%). One of the two figures is wrong."
+    ask: "The largest investor is reported at {value}%, above the top 5 investors together ({expected}%). Could you confirm both figures?"
+
+  - id: LEV-ORDER
+    name: Commitment leverage is not above gross leverage
+    severity: warning
+    check: less_or_equal
+    field: commitment_leverage_pct
+    other: gross_leverage_pct
+    explain: "Commitment leverage ({value}%) is above gross leverage ({expected}%). This is unusual: confirm the figures with the client."
+    ask: "Commitment leverage ({value}%) is reported above gross leverage ({expected}%). Could you confirm both figures?"
+
+  - id: LEV-HIGH
+    name: Gross leverage is within the usual range
+    severity: warning
+    check: max
+    field: gross_leverage_pct
+    max: 300
+    explain: "Gross leverage of {value}% is above 300% of NAV. Confirm the figure and that the fund's leverage limit allows it."
+    ask: "Gross leverage is reported at {value}% of NAV. Could you confirm this figure?"
+
+  - id: NAV-JUMP
+    name: NAV change against the previous period is plausible
+    severity: warning
+    check: change_vs_previous
+    field: nav
+    threshold_pct: 25
+    explain: "NAV moved {value} since the last filed period ({expected}). Confirm the reason, for example large subscriptions or redemptions."
+    ask: "NAV changed by {value} since the last reported period ({expected}). Could you confirm the main reason, for example subscriptions or redemptions?"

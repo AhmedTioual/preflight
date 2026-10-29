@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ client.name }}{% endblock %}
+{% block content %}
+<div class="page">
+  <header class="page-head">
+    <div>
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="/overview">Overview</a><svg class="icon icon-sm"><use href="#i-chevron"/></svg><a href="/clients">Clients</a><svg class="icon icon-sm"><use href="#i-chevron"/></svg><span>{{ client.name }}</span></nav>
+      <h1>{{ client.name }}</h1>
+      <p class="lede">{{ client.client_type }}. Contact: {{ client.contact_name }}, <a href="mailto:{{ client.contact_email }}">{{ client.contact_email }}</a>.</p>
+    </div>
+    {% if user.role in ('maker', 'admin') %}<div class="head-actions"><a class="btn btn-primary" href="/filings/new"><svg class="icon"><use href="#i-upload"/></svg>New filing</a></div>{% endif %}
+  </header>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Filings</h2><p>{{ client.filings|length }} in total</p></div>
+    {% if client.filings %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>Period end</th><th>Status</th><th class="num">Versions</th><th>First file</th><th>Approved internally by</th></tr></thead>
+      <tbody>
+      {% for f in client.filings %}{% set ftr = first_time_right(f) %}
+      <tr class="row-link" data-href="/filings/{{ f.id }}">
+        <td><a class="cell-title" href="/filings/{{ f.id }}">{{ f.period_end.strftime('%d %B %Y') }}</a></td>
+        <td><span class="badge badge-dot b-{{ f.status }}">{{ STATUS_LABELS[f.status] }}</span></td>
+        <td class="num">{{ f.versions|length }}</td>
+        <td>{% if ftr is none %}<span class="muted small">Not checked yet</span>{% elif ftr %}<span class="badge b-ok">No errors</span>{% else %}<span class="badge b-error">{{ f.versions[0].initial_errors }} error{{ 's' if f.versions[0].initial_errors != 1 }}</span>{% endif %}</td>
+        <td>{{ f.reviewed_by.full_name if f.status in ('approved', 'sent_to_client', 'client_approved', 'filed') and f.reviewed_by else '' }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty"><svg class="icon"><use href="#i-file"/></svg><strong>No filings yet</strong><p class="small">The first file from this client starts its history.</p></div>
+    {% endif %}
+  </section>
+
+  <section class="section">
+    <div class="section-head"><h2>Fund register</h2><p>Used to check LEIs and to compare NAV with the last reported period</p></div>
+    <div class="panel table-wrap"><table>
+      <thead><tr><th>Fund</th><th>LEI</th><th>Strategy</th><th class="num">Last NAV on record</th></tr></thead>
+      <tbody>
+      {% for f in client.funds %}
+      <tr><td class="cell-title">{{ f.name }}</td><td class="mono">{{ f.lei }}</td><td>{{ f.strategy.replace('_', ' ')|capitalize }}</td>
+        <td class="num">{% if f.last_reported_nav %}{{ f.base_currency }} {{ '{:,.0f}'.format(f.last_reported_nav) }}<div class="cell-sub">{{ f.last_reported_period.strftime('%d %b %Y') }}, before onboarding</div>{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="section">
+    <div class="section-head"><h2>Learned column mappings</h2><p>Confirmed once, applied automatically to every new file from {{ client.name }}</p></div>
+    <div class="panel table-wrap">
+      {% if client.mappings %}
+      <table>
+        <thead><tr><th>Client column</th><th>Template field</th><th>Unit conversion</th><th>Confirmed by</th><th class="num">Times used</th></tr></thead>
+        <tbody>
+        {% for m in client.mappings %}
+        <tr>
+          <td class="mono">{{ m.header }}</td>
+          <td>{% if m.target_field %}{{ template.field(m.target_field).label }}{% else %}<span class="muted">Not needed</span>{% endif %}</td>
+          <td>{% if m.transform != 'none' %}<span class="badge b-brand">{{ TRANSFORMS[m.transform] }}</span>{% else %}<span class="muted small">None</span>{% endif %}</td>
+          <td>{{ m.confirmed_by.full_name }}<div class="cell-sub">{{ m.confirmed_at.strftime('%d %b %Y') }}</div></td>
+          <td class="num">{{ m.times_used }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty"><svg class="icon"><use href="#i-columns"/></svg><strong>Nothing learned yet</strong><p class="small">Mappings are saved when an analyst confirms the columns of this client's first file.</p></div>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}
